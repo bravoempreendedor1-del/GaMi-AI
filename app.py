@@ -253,16 +253,43 @@ async def processar_interacao(texto_usuario, responder_com_audio=False):
         historico = cl.user_session.get("historico", [])
         
         # 1. Pensar
-        await cl.Message(content="🧠 Pensando...", type="info").send()
+        msg_pensando = await cl.Message(content="🧠 Pensando...", type="info").send()
         
         # Executa pensamento em thread separada para não bloquear
-        # Tenta usar asyncio.to_thread se disponível (Python 3.9+), senão usa loop.run_in_executor
         try:
-            resposta = await asyncio.to_thread(pensar, texto_usuario, system_prompt, historico)
-        except AttributeError:
-            # Fallback para Python < 3.9
-            loop = asyncio.get_event_loop()
-            resposta = await loop.run_in_executor(None, lambda: pensar(texto_usuario, system_prompt, historico))
+            # Tenta usar asyncio.to_thread se disponível (Python 3.9+), senão usa loop.run_in_executor
+            try:
+                resposta = await asyncio.to_thread(pensar, texto_usuario, system_prompt, historico)
+            except AttributeError:
+                # Fallback para Python < 3.9
+                loop = asyncio.get_event_loop()
+                resposta = await loop.run_in_executor(None, lambda: pensar(texto_usuario, system_prompt, historico))
+            
+            # Valida se a resposta foi gerada
+            if not resposta or not resposta.strip():
+                raise Exception("Resposta vazia do modelo")
+                
+        except ValueError as e:
+            # Erro de configuração (API key faltando)
+            await cl.Message(
+                content=f"⚠️ **Erro de Configuração:** {str(e)}\n\nVerifique se OPENAI_API_KEY está configurada no Render.",
+                type="error"
+            ).send()
+            return
+        except Exception as e:
+            # Outros erros
+            error_msg = str(e)
+            if "API key" in error_msg or "authentication" in error_msg.lower():
+                await cl.Message(
+                    content=f"⚠️ **Erro de Autenticação:** Verifique se OPENAI_API_KEY está correta no Render.",
+                    type="error"
+                ).send()
+            else:
+                await cl.Message(
+                    content=f"⚠️ **Erro ao processar:** {error_msg}",
+                    type="error"
+                ).send()
+            return
         
         # 2. Atualizar Memória Local
         historico.append({"role": "user", "content": texto_usuario})
