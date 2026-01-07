@@ -154,18 +154,25 @@ async def chat_profiles():
 
 @cl.on_chat_start
 async def start():
-    # Define o perfil - pode ser objeto ou string
-    chat_profile = cl.user_session.get("chat_profile")
+    # Define o perfil - tratamento robusto para diferentes formatos
+    perfil_nome = "modo_geral"  # Padrão
     
-    # Trata chat_profile como objeto ou string
-    if chat_profile:
-        if hasattr(chat_profile, 'name'):
-            perfil_nome = chat_profile.name
-        elif isinstance(chat_profile, str):
-            perfil_nome = chat_profile
-        else:
-            perfil_nome = "modo_geral"
-    else:
+    try:
+        chat_profile = cl.user_session.get("chat_profile")
+        
+        if chat_profile:
+            # Tenta acessar como objeto primeiro
+            try:
+                if hasattr(chat_profile, 'name'):
+                    perfil_nome = chat_profile.name
+                elif isinstance(chat_profile, str):
+                    perfil_nome = chat_profile
+            except (AttributeError, TypeError):
+                # Se falhar, tenta como string
+                if isinstance(chat_profile, str):
+                    perfil_nome = chat_profile
+    except Exception as e:
+        print(f"⚠️ Erro ao obter perfil: {e}, usando padrão")
         perfil_nome = "modo_geral"
     
     # Gera ID único se não existir
