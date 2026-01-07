@@ -25,17 +25,21 @@ _USE_SQLITE_LOCAL = False
 _DATABASE_URL_FINAL = None
 
 def configurar_banco():
-    """Tenta conectar ao Postgres. Se falhar, usa SQLite local."""
+    """Tenta conectar ao Postgres. Se falhar, usa SQLite local e desabilita DataLayer do Chainlit."""
     global _USE_SQLITE_LOCAL, _DATABASE_URL_FINAL
     
     database_url = os.environ.get("DATABASE_URL")
     
-    # Se não há DATABASE_URL, usa SQLite
+    # Se não há DATABASE_URL, usa SQLite e desabilita DataLayer
     if not database_url:
         _USE_SQLITE_LOCAL = True
         _DATABASE_URL_FINAL = "sqlite:///chainlit.db"
+        cl.DataLayer = None  # Desabilita DataLayer do Chainlit
+        print("✅ BANCO LOCAL (SQLite) - DataLayer do Chainlit desabilitado")
+        return
+    
     # Se detecta railway.internal, testa conexão
-    elif "railway.internal" in database_url:
+    if "railway.internal" in database_url:
         # Tenta conexão com timeout curto para ver se estamos no servidor
         try:
             from sqlalchemy import create_engine, text
@@ -62,8 +66,11 @@ def configurar_banco():
             # Configura Chainlit para Produção
             try:
                 cl.DataLayer = SQLAlchemyDataLayer(conninfo=database_url, ssl_args={"sslmode": "require"})
+                print("✅ DataLayer do Chainlit configurado (PostgreSQL)")
             except Exception as dl_error:
-                print(f"⚠️ Erro ao configurar DataLayer: {dl_error}, usando SQLite")
+                print(f"⚠️ Erro ao configurar DataLayer: {dl_error}")
+                print("ℹ️ Desabilitando DataLayer do Chainlit (usando persistência customizada)")
+                cl.DataLayer = None
                 _USE_SQLITE_LOCAL = True
                 _DATABASE_URL_FINAL = "sqlite:///chainlit.db"
             return
@@ -73,34 +80,31 @@ def configurar_banco():
             print(f"🔄 Modo Local Ativado (não foi possível conectar: {str(e)[:100]})")
             _USE_SQLITE_LOCAL = True
             _DATABASE_URL_FINAL = "sqlite:///chainlit.db"
+            cl.DataLayer = None  # IMPORTANTE: Desabilita DataLayer para evitar tentativas de conexão
+            print("ℹ️ DataLayer do Chainlit desabilitado (evita erros de conexão)")
+            return
+    
     # URL PostgreSQL sem railway.internal (produção manual)
-    elif "postgresql" in database_url or "postgres" in database_url:
+    if "postgresql" in database_url or "postgres" in database_url:
         if database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql://", 1)
         print("✅ BANCO ONLINE (PostgreSQL)")
         _USE_SQLITE_LOCAL = False
         _DATABASE_URL_FINAL = database_url
-        cl.DataLayer = SQLAlchemyDataLayer(conninfo=database_url, ssl_args={"sslmode": "require"})
-        return
-    else:
-        # Qualquer outra URL desconhecida, usa SQLite
-        _USE_SQLITE_LOCAL = True
-        _DATABASE_URL_FINAL = "sqlite:///chainlit.db"
-
-    # Configura SQLite Local
-    if _USE_SQLITE_LOCAL:
-        db_local = "sqlite+aiosqlite:///chainlit.db"
         try:
-            # Configura o DataLayer do Chainlit
-            cl.DataLayer = SQLAlchemyDataLayer(conninfo=db_local)
-            # Força inicialização do storage client
-            if hasattr(cl.DataLayer, 'init'):
-                cl.DataLayer.init()
-            print("✅ BANCO LOCAL ATIVADO (chainlit.db com aiosqlite)")
+            cl.DataLayer = SQLAlchemyDataLayer(conninfo=database_url, ssl_args={"sslmode": "require"})
+            print("✅ DataLayer do Chainlit configurado (PostgreSQL)")
         except Exception as e:
-            print(f"⚠️ Erro ao configurar DataLayer local: {e}")
-            print("ℹ️ Continuando sem DataLayer do Chainlit (usando persistência customizada)")
+            print(f"⚠️ Erro ao configurar DataLayer: {e}")
+            print("ℹ️ Desabilitando DataLayer do Chainlit (usando persistência customizada)")
             cl.DataLayer = None
+        return
+    
+    # Qualquer outra URL desconhecida, usa SQLite e desabilita DataLayer
+    _USE_SQLITE_LOCAL = True
+    _DATABASE_URL_FINAL = "sqlite:///chainlit.db"
+    cl.DataLayer = None  # Desabilita DataLayer do Chainlit
+    print("✅ BANCO LOCAL (SQLite) - DataLayer do Chainlit desabilitado")
 
 # Executa a configuração
 configurar_banco()
