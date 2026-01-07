@@ -1,12 +1,31 @@
 services:
+  # Web Service - Aplicação Chainlit
   - type: web
     name: gami-ai
     env: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    plan: free  # Pode mudar para starter ou pro
+    region: oregon  # ou frankfurt, singapore, etc.
     envVars:
       - key: PORT
         value: 8000
       - key: PYTHON_VERSION
         value: 3.11.0
-
+      - key: OPENAI_API_KEY
+        sync: false  # Deve ser configurado manualmente no Render Dashboard
+      - key: OPENAI_BASE_URL
+        sync: false  # Opcional: para OpenRouter
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gami-ai-db
+          property: connectionString
+    healthCheckPath: /
+    
+  # PostgreSQL Database
+  - type: pgsql
+    name: gami-ai-db
+    plan: free  # Pode mudar para starter ou pro
+    region: oregon  # Deve ser a mesma região do web service
+    databaseName: gami_ai
+    databaseUser: gami_ai_user

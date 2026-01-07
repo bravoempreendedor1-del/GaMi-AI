@@ -56,7 +56,7 @@ name = "GaMi-AI"
 description = ""
 
 # Favicon (ícone da aba do navegador)
-favicon = "/public/logo_dark.png.png"
+favicon = "/public/logo_dark.png"
 
 # --- VISUAL ---
 # Força o modo escuro
@@ -73,10 +73,10 @@ layout = "wide"
 
 # Logos por tema
 [UI.theme.dark]
-logo = "/public/logo_dark.png.png"
+logo = "/public/logo_dark.png"
 
 [UI.theme.light]
-logo = "/public/logo_dark.png.png"
+logo = "/public/logo_dark.png"
 
 # Caminho para arquivos estáticos (CSS/JS)
 # custom_build = "./public"
