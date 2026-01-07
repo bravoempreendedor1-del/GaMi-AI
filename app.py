@@ -60,12 +60,17 @@ def configurar_banco():
             _DATABASE_URL_FINAL = database_url
             
             # Configura Chainlit para Produção
-            cl.DataLayer = SQLAlchemyDataLayer(conninfo=database_url, ssl_args={"sslmode": "require"})
+            try:
+                cl.DataLayer = SQLAlchemyDataLayer(conninfo=database_url, ssl_args={"sslmode": "require"})
+            except Exception as dl_error:
+                print(f"⚠️ Erro ao configurar DataLayer: {dl_error}, usando SQLite")
+                _USE_SQLITE_LOCAL = True
+                _DATABASE_URL_FINAL = "sqlite:///chainlit.db"
             return
             
         except Exception as e:
-            # Falhou = está local
-            print(f"🔄 Modo Local Ativado (não foi possível conectar ao Railway)")
+            # Falhou = está local ou no Render (railway.internal não funciona fora do Railway)
+            print(f"🔄 Modo Local Ativado (não foi possível conectar: {str(e)[:100]})")
             _USE_SQLITE_LOCAL = True
             _DATABASE_URL_FINAL = "sqlite:///chainlit.db"
     # URL PostgreSQL sem railway.internal (produção manual)

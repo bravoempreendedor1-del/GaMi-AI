@@ -78,11 +78,16 @@ def criar_llm() -> ChatOpenAI:
     if not api_key:
         raise ValueError("OPENAI_API_KEY não configurada. Configure a variável de ambiente.")
     
-    # Se usar OpenRouter, a base_url deve ser configurada no .env
-    # Exemplo: OPENAI_BASE_URL=https://openrouter.ai/api/v1
+    # Determina modelo baseado na base_url
+    # Se usar OpenRouter, usa Claude. Se usar OpenAI direto, usa GPT
+    if "openrouter.ai" in base_url:
+        model_name = "anthropic/claude-3.5-sonnet"
+    else:
+        # Se usar OpenAI direto, usa GPT-4
+        model_name = "gpt-4-turbo-preview"
     
     llm = ChatOpenAI(
-        model="anthropic/claude-3.5-sonnet",  # Modelo Claude via OpenRouter
+        model=model_name,
         api_key=api_key,
         base_url=base_url,
         temperature=0.7,
