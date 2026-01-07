@@ -158,21 +158,25 @@ async def start():
     perfil_nome = "modo_geral"  # Padrão
     
     try:
+        # Tenta obter o perfil de diferentes formas
         chat_profile = cl.user_session.get("chat_profile")
         
         if chat_profile:
-            # Tenta acessar como objeto primeiro
-            try:
-                if hasattr(chat_profile, 'name'):
-                    perfil_nome = chat_profile.name
-                elif isinstance(chat_profile, str):
-                    perfil_nome = chat_profile
-            except (AttributeError, TypeError):
-                # Se falhar, tenta como string
-                if isinstance(chat_profile, str):
-                    perfil_nome = chat_profile
+            # Se for string, usa diretamente
+            if isinstance(chat_profile, str):
+                perfil_nome = chat_profile
+            # Se for objeto, tenta acessar .name
+            elif hasattr(chat_profile, 'name'):
+                perfil_nome = chat_profile.name
+            # Se for dict, tenta acessar pela chave 'name'
+            elif isinstance(chat_profile, dict):
+                perfil_nome = chat_profile.get('name', 'modo_geral')
     except Exception as e:
         print(f"⚠️ Erro ao obter perfil: {e}, usando padrão")
+        perfil_nome = "modo_geral"
+    
+    # Garante que o perfil é válido
+    if perfil_nome not in ["modo_programador", "modo_consultor", "modo_geral"]:
         perfil_nome = "modo_geral"
     
     # Gera ID único se não existir
