@@ -273,9 +273,19 @@ async def processar_interacao(texto_usuario, responder_com_audio=False):
             # Valida se a resposta foi gerada
             if not resposta or not resposta.strip():
                 raise Exception("Resposta vazia do modelo")
+            
+            # Remove mensagem "Pensando..." após sucesso
+            try:
+                await msg_pensando.remove()
+            except:
+                pass
                 
         except ValueError as e:
             # Erro de configuração (API key faltando)
+            try:
+                await msg_pensando.remove()
+            except:
+                pass
             await cl.Message(
                 content=f"⚠️ **Erro de Configuração:** {str(e)}\n\nVerifique se OPENAI_API_KEY está configurada no Render.",
                 type="error"
@@ -283,15 +293,28 @@ async def processar_interacao(texto_usuario, responder_com_audio=False):
             return
         except Exception as e:
             # Outros erros
+            try:
+                await msg_pensando.remove()
+            except:
+                pass
             error_msg = str(e)
-            if "API key" in error_msg or "authentication" in error_msg.lower():
+            import traceback
+            print(f"❌ Erro ao pensar: {error_msg}")
+            print(f"❌ Traceback: {traceback.format_exc()}")
+            
+            if "API key" in error_msg or "authentication" in error_msg.lower() or "401" in error_msg:
                 await cl.Message(
-                    content=f"⚠️ **Erro de Autenticação:** Verifique se OPENAI_API_KEY está correta no Render.",
+                    content=f"⚠️ **Erro de Autenticação:** Verifique se OPENAI_API_KEY está correta no Render.\n\nDetalhes: {error_msg[:200]}",
+                    type="error"
+                ).send()
+            elif "400" in error_msg or "Bad Request" in error_msg:
+                await cl.Message(
+                    content=f"⚠️ **Erro na Requisição:** Verifique se o modelo está disponível e a base_url está correta.\n\nDetalhes: {error_msg[:200]}",
                     type="error"
                 ).send()
             else:
                 await cl.Message(
-                    content=f"⚠️ **Erro ao processar:** {error_msg}",
+                    content=f"⚠️ **Erro ao processar:** {error_msg[:300]}",
                     type="error"
                 ).send()
             return
@@ -310,20 +333,19 @@ async def processar_interacao(texto_usuario, responder_com_audio=False):
         
         perfil = cl.user_session.get("perfil", "modo_geral")
         if thread_id:
-            # Executa backup em background sem bloquear
+            # Executa backup em background sem bloquear (não aguarda)
             def fazer_backup():
                 try:
                     salvar_db_backup(thread_id, perfil, texto_usuario, resposta)
                 except Exception as e:
                     print(f"⚠️ Erro backup DB: {e}")
             
-            # Tenta usar asyncio.to_thread se disponível (Python 3.9+), senão usa loop.run_in_executor
+            # Executa em background sem bloquear a resposta
             try:
-                asyncio.create_task(asyncio.to_thread(fazer_backup))
-            except AttributeError:
-                # Fallback para Python < 3.9
                 loop = asyncio.get_event_loop()
                 loop.run_in_executor(None, fazer_backup)
+            except Exception as e:
+                print(f"⚠️ Erro ao agendar backup: {e}")
 
         # 4. Responder (Texto)
         await cl.Message(content=resposta).send()

@@ -83,8 +83,13 @@ def criar_llm() -> ChatOpenAI:
     if "openrouter.ai" in base_url:
         model_name = "anthropic/claude-3.5-sonnet"
     else:
-        # Se usar OpenAI direto, usa GPT-4
-        model_name = "gpt-4-turbo-preview"
+        # Se usar OpenAI direto, tenta GPT-4o, senão usa GPT-3.5-turbo como fallback
+        model_name = os.getenv("OPENAI_MODEL", "gpt-4o")
+        # Fallback para modelos mais antigos se gpt-4o não estiver disponível
+        if model_name not in ["gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"]:
+            model_name = "gpt-4o"  # Tenta gpt-4o primeiro
+    
+    print(f"🔧 Usando modelo: {model_name} | Base URL: {base_url}")
     
     llm = ChatOpenAI(
         model=model_name,
@@ -130,7 +135,29 @@ def pensar(mensagem: str, system_prompt: str, historico: list = None) -> str:
     
     # Obter resposta
     try:
+        print(f"📤 Enviando mensagem para o modelo...")
         response = llm.invoke(mensagens)
-        return response.content
+        resposta_texto = response.content if hasattr(response, 'content') else str(response)
+        print(f"✅ Resposta recebida ({len(resposta_texto)} caracteres)")
+        return resposta_texto
     except Exception as e:
-        raise Exception(f"Erro ao processar mensagem: {str(e)}")
+        error_msg = str(e)
+        print(f"❌ Erro ao invocar modelo: {error_msg}")
+        # Se for erro de modelo não encontrado, tenta fallback
+        if "model" in error_msg.lower() and ("not found" in error_msg.lower() or "does not exist" in error_msg.lower()):
+            # Tenta usar gpt-3.5-turbo como fallback
+            print("🔄 Tentando fallback para gpt-3.5-turbo...")
+            try:
+                llm_fallback = ChatOpenAI(
+                    model="gpt-3.5-turbo",
+                    api_key=os.getenv("OPENAI_API_KEY"),
+                    base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+                    temperature=0.7,
+                    max_tokens=2000,
+                    timeout=60,
+                )
+                response = llm_fallback.invoke(mensagens)
+                return response.content if hasattr(response, 'content') else str(response)
+            except Exception as e2:
+                raise Exception(f"Erro ao processar mensagem (tentativa com fallback também falhou): {str(e2)}")
+        raise Exception(f"Erro ao processar mensagem: {error_msg}")
