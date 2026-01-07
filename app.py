@@ -162,15 +162,21 @@ async def start():
         chat_profile = cl.user_session.get("chat_profile")
         
         if chat_profile:
-            # Se for string, usa diretamente
+            # PRIORIDADE 1: Se for string, usa diretamente (mais comum)
             if isinstance(chat_profile, str):
                 perfil_nome = chat_profile
-            # Se for objeto, tenta acessar .name
-            elif hasattr(chat_profile, 'name'):
-                perfil_nome = chat_profile.name
-            # Se for dict, tenta acessar pela chave 'name'
+            # PRIORIDADE 2: Se for dict, tenta acessar pela chave 'name'
             elif isinstance(chat_profile, dict):
                 perfil_nome = chat_profile.get('name', 'modo_geral')
+            # PRIORIDADE 3: Se for objeto com atributo 'name', acessa com try/except
+            else:
+                try:
+                    if hasattr(chat_profile, 'name'):
+                        perfil_nome = getattr(chat_profile, 'name', 'modo_geral')
+                    else:
+                        perfil_nome = "modo_geral"
+                except (AttributeError, TypeError):
+                    perfil_nome = "modo_geral"
     except Exception as e:
         print(f"⚠️ Erro ao obter perfil: {e}, usando padrão")
         perfil_nome = "modo_geral"
