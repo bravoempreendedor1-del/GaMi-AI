@@ -74,6 +74,10 @@ def criar_llm() -> ChatOpenAI:
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     
+    # Validação da API key
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY não configurada. Configure a variável de ambiente.")
+    
     # Se usar OpenRouter, a base_url deve ser configurada no .env
     # Exemplo: OPENAI_BASE_URL=https://openrouter.ai/api/v1
     
@@ -83,6 +87,7 @@ def criar_llm() -> ChatOpenAI:
         base_url=base_url,
         temperature=0.7,
         max_tokens=2000,
+        timeout=60,  # Timeout de 60 segundos
     )
     
     return llm

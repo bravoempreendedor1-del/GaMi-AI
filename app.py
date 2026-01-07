@@ -244,6 +244,11 @@ async def processar_interacao(texto_usuario, responder_com_audio=False):
         
         # 3. Salvar no Banco Customizado (Backup) - Executa em background sem bloquear
         thread_id = cl.user_session.get("thread_id")
+        if not thread_id:
+            import uuid
+            thread_id = str(uuid.uuid4())
+            cl.user_session.set("thread_id", thread_id)
+        
         perfil = cl.user_session.get("perfil", "modo_geral")
         if thread_id:
             # Executa backup em background sem bloquear
@@ -284,7 +289,13 @@ async def processar_interacao(texto_usuario, responder_com_audio=False):
                     print(f"⚠️ Erro ao gerar áudio: {e}")
 
     except Exception as e:
-        await cl.Message(content=f"❌ Erro: {str(e)}", type="error").send()
+        import traceback
+        error_msg = str(e)
+        print(f"❌ Erro completo: {traceback.format_exc()}")
+        await cl.Message(
+            content=f"❌ **Erro ao processar:** {error_msg}\n\nPor favor, tente novamente ou verifique os logs.",
+            type="error"
+        ).send()
 
 def salvar_db_backup(tid, perfil, user_txt, ai_txt):
     """
