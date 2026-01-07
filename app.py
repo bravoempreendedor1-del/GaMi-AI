@@ -20,92 +20,100 @@ load_dotenv()
 # 1. CONFIGURAÇÃO DO BANCO DE DADOS (LOCAL vs SERVIDOR - LÓGICA HÍBRIDA)
 # ============================================================================
 
-def detectar_e_configurar_banco():
-    """
-    Detecta automaticamente se está rodando localmente ou no Railway.
-    Se detectar 'railway.internal' na URL, testa conexão antes de usar.
-    """
-    database_url = os.environ.get("DATABASE_URL")
-    usar_postgres = False
+# Variável global para controlar qual banco usar
+_USE_SQLITE_LOCAL = False
+_DATABASE_URL_FINAL = None
+
+def configurar_banco():
+    """Tenta conectar ao Postgres. Se falhar, usa SQLite local."""
+    global _USE_SQLITE_LOCAL, _DATABASE_URL_FINAL
     
-    if database_url:
-        # Verifica se é URL do Railway (contém railway.internal)
-        if "railway.internal" in database_url:
-            # Ajuste para Railway (Postgres)
+    database_url = os.environ.get("DATABASE_URL")
+    
+    # Se não há DATABASE_URL, usa SQLite
+    if not database_url:
+        _USE_SQLITE_LOCAL = True
+        _DATABASE_URL_FINAL = "sqlite:///chainlit.db"
+    # Se detecta railway.internal, testa conexão
+    elif "railway.internal" in database_url:
+        # Tenta conexão com timeout curto para ver se estamos no servidor
+        try:
+            from sqlalchemy import create_engine, text
+            # Ajusta URL se necessário
             if database_url.startswith("postgres://"):
                 database_url = database_url.replace("postgres://", "postgresql://", 1)
             
-            # Tenta conectar com timeout curto para detectar se está no servidor
-            try:
-                import socket
-                from sqlalchemy import text
-                
-                # Extrai host da URL para teste
-                if "postgresql" in database_url:
-                    # Cria engine temporário para teste
-                    test_engine = create_engine(
-                        database_url,
-                        pool_pre_ping=True,
-                        connect_args={
-                            "sslmode": "require",
-                            "connect_timeout": 2  # Timeout de 2 segundos
-                        },
-                        pool_pre_ping=True
-                    )
-                    
-                    # Tenta conexão rápida
-                    with test_engine.connect() as conn:
-                        conn.execute(text("SELECT 1"))
-                    test_engine.dispose()
-                    
-                    # Se conectou, está no servidor Railway
-                    usar_postgres = True
-                    print("✅ MODO: Produção (Railway - PostgreSQL detectado)")
-                
-            except Exception as e:
-                # Falhou ao conectar = está rodando localmente
-                print(f"🔄 Modo Local Ativado (não foi possível conectar ao Railway: {e})")
-                database_url = "sqlite:///chainlit.db"
-                usar_postgres = False
-        
-        elif "postgresql" in database_url or "postgres" in database_url:
-            # URL PostgreSQL sem railway.internal (pode ser produção manual)
-            usar_postgres = True
-            if database_url.startswith("postgres://"):
-                database_url = database_url.replace("postgres://", "postgresql://", 1)
-            print("✅ MODO: Produção (PostgreSQL)")
-    
-    # Configura engine baseado na detecção
-    if usar_postgres:
-        engine = create_engine(
-            database_url,
-            pool_pre_ping=True,
-            connect_args={"sslmode": "require"} if "postgresql" in database_url else {}
-        )
+            engine_teste = create_engine(
+                database_url, 
+                pool_pre_ping=True, 
+                connect_args={"connect_timeout": 2, "sslmode": "require"}
+            )
+            
+            # Testa conexão
+            with engine_teste.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            engine_teste.dispose()
+            
+            # Se conectou, está no Railway
+            print("✅ BANCO ONLINE CONECTADO (PostgreSQL Railway)")
+            _USE_SQLITE_LOCAL = False
+            _DATABASE_URL_FINAL = database_url
+            
+            # Configura Chainlit para Produção
+            cl.DataLayer = SQLAlchemyDataLayer(conninfo=database_url, ssl_args={"sslmode": "require"})
+            return
+            
+        except Exception as e:
+            # Falhou = está local
+            print(f"🔄 Modo Local Ativado (não foi possível conectar ao Railway)")
+            _USE_SQLITE_LOCAL = True
+            _DATABASE_URL_FINAL = "sqlite:///chainlit.db"
+    # URL PostgreSQL sem railway.internal (produção manual)
+    elif "postgresql" in database_url or "postgres" in database_url:
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        print("✅ BANCO ONLINE (PostgreSQL)")
+        _USE_SQLITE_LOCAL = False
+        _DATABASE_URL_FINAL = database_url
+        cl.DataLayer = SQLAlchemyDataLayer(conninfo=database_url, ssl_args={"sslmode": "require"})
+        return
     else:
-        # Fallback para Local (SQLite)
-        if not database_url or database_url == os.environ.get("DATABASE_URL"):
-            database_url = "sqlite:///chainlit.db"
-        
-        engine = create_engine(
-            database_url,
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool
-        )
-        print("✅ MODO: Local (SQLite - chainlit.db)")
-    
-    return database_url, engine
+        # Qualquer outra URL desconhecida, usa SQLite
+        _USE_SQLITE_LOCAL = True
+        _DATABASE_URL_FINAL = "sqlite:///chainlit.db"
 
-# Executa detecção e configuração
-database_url, engine = detectar_e_configurar_banco()
+    # Configura SQLite Local
+    if _USE_SQLITE_LOCAL:
+        db_local = "sqlite+aiosqlite:///chainlit.db"
+        try:
+            # Configura o DataLayer do Chainlit
+            cl.DataLayer = SQLAlchemyDataLayer(conninfo=db_local)
+            # Força inicialização do storage client
+            if hasattr(cl.DataLayer, 'init'):
+                cl.DataLayer.init()
+            print("✅ BANCO LOCAL ATIVADO (chainlit.db com aiosqlite)")
+        except Exception as e:
+            print(f"⚠️ Erro ao configurar DataLayer local: {e}")
+            print("ℹ️ Continuando sem DataLayer do Chainlit (usando persistência customizada)")
+            cl.DataLayer = None
 
-# Inicializa a camada de dados do Chainlit (usa conninfo, não engine)
-try:
-    cl.DataLayer = SQLAlchemyDataLayer(conninfo=database_url)
-    print("✅ SQLAlchemyDataLayer configurado com sucesso")
-except Exception as e:
-    print(f"⚠️ Erro ao conectar DataLayer: {e}")
-    cl.DataLayer = None
+# Executa a configuração
+configurar_banco()
+
+# Configura engine para nosso banco auxiliar (usado em database.py)
+# Usa a mesma lógica determinada acima
+if _USE_SQLITE_LOCAL:
+    engine = create_engine(
+        "sqlite:///chainlit.db",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
+    )
+else:
+    engine = create_engine(
+        _DATABASE_URL_FINAL,
+        pool_pre_ping=True,
+        connect_args={"sslmode": "require"} if "postgresql" in _DATABASE_URL_FINAL else {}
+    )
 
 # Inicializa nosso banco auxiliar
 init_db()

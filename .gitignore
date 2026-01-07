@@ -9,6 +9,12 @@ audio/
 *.mp3
 *.wav
 
+# Banco de dados
+*.db
+*.sqlite
+*.sqlite3
+chainlit.db
+
 # Python
 __pycache__/
 *.py[cod]

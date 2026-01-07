@@ -11,22 +11,61 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Lógica Dual: Verifica DATABASE_URL
+# IMPORTANTE: Este módulo é importado depois de app.py, então usa a mesma lógica
 DATABASE_URL = os.getenv("DATABASE_URL")
+usar_sqlite = False
 
 if DATABASE_URL:
-    # Produção/Railway: Usa PostgreSQL
-    # DATABASE_URL já vem no formato correto (postgresql://user:pass@host/db)
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-    print(f"✅ Conectado ao PostgreSQL (Produção)")
+    # Se detecta railway.internal, testa se consegue conectar
+    if "railway.internal" in DATABASE_URL:
+        try:
+            from sqlalchemy import text
+            # Ajusta URL
+            if DATABASE_URL.startswith("postgres://"):
+                DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+            
+            test_engine = create_engine(
+                DATABASE_URL,
+                pool_pre_ping=True,
+                connect_args={"connect_timeout": 2, "sslmode": "require"}
+            )
+            with test_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            test_engine.dispose()
+            print(f"✅ Conectado ao PostgreSQL (Produção)")
+        except Exception:
+            # Não conseguiu conectar = está local
+            usar_sqlite = True
+            DATABASE_URL = "sqlite:///chainlit.db"
+            print(f"🔄 Modo Local (database.py)")
+    elif "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
+        # PostgreSQL sem railway.internal
+        if DATABASE_URL.startswith("postgres://"):
+            DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        print(f"✅ Conectado ao PostgreSQL (database.py)")
+    else:
+        # URL desconhecida, usa SQLite
+        usar_sqlite = True
+        DATABASE_URL = "sqlite:///chainlit.db"
 else:
-    # Local: Usa SQLite
+    # Sem DATABASE_URL
+    usar_sqlite = True
     DATABASE_URL = "sqlite:///chainlit.db"
+
+# Configura engine baseado na detecção
+if usar_sqlite:
     engine = create_engine(
         DATABASE_URL,
-        connect_args={"check_same_thread": False},  # Necessário para SQLite
+        connect_args={"check_same_thread": False},
         poolclass=StaticPool
     )
     print(f"✅ Conectado ao SQLite (Local): {DATABASE_URL}")
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        connect_args={"sslmode": "require"} if "postgresql" in DATABASE_URL else {}
+    )
 
 
 # Criar todas as tabelas

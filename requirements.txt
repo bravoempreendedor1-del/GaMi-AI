@@ -6,4 +6,6 @@ langchain_core
 python-dotenv
 sqlalchemy
 psycopg2-binary
+asyncpg
+aiosqlite
 crewai
