@@ -1,0 +1,28 @@
+# Ambiente
+.env
+.venv
+venv/
+env/
+
+# Áudio gerado
+audio/
+*.mp3
+*.wav
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+

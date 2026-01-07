@@ -1,0 +1,88 @@
+/* --- ESTILO CHATGPT DARK MODE --- */
+
+/* Fundo Principal */
+body {
+    background-color: #343541 !important; /* Cinza Escuro ChatGPT */
+    color: #ECECF1 !important;
+}
+
+/* Cabeçalho com Logo GaMi-AI */
+header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background-color: #000000 !important; /* Fundo preto para destacar a logo */
+    padding: 15px 20px !important;
+    border-bottom: 2px solid #00D4FF !important; /* Borda ciano */
+}
+
+/* Estilização da Logo */
+header img,
+header svg {
+    max-height: 60px !important;
+    width: auto !important;
+    margin: 0 auto !important;
+}
+
+/* Barra Lateral (Sidebar) */
+.MuiDrawer-paper {
+    background-color: #202123 !important; /* Sidebar mais escura */
+    border-right: 1px solid #4d4d4f;
+    color: white !important;
+}
+
+/* Mensagens */
+.step-content {
+    font-family: 'Söhne', 'Helvetica Neue', Arial, sans-serif !important;
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+}
+
+/* Caixa do Usuário (Transparente/Escura) */
+.user-message {
+    background-color: transparent !important;
+}
+
+/* Caixa da IA (Fundo levemente mais claro) */
+.assistant-message {
+    background-color: #444654 !important; /* Destaque sutil */
+    border-radius: 8px;
+    padding: 15px;
+}
+
+/* Barra de Digitação (Input) */
+#chat-input {
+    background-color: #40414F !important;
+    border: 1px solid #565869 !important;
+    border-radius: 12px !important;
+    color: white !important;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+}
+
+/* Botão de Enviar */
+.submit-button {
+    color: #ECECF1 !important;
+}
+
+/* Ajuste dos Perfis (Para não ficar cinza feio) */
+.markdown-body {
+    background-color: transparent !important;
+    color: #ECECF1 !important;
+    font-family: inherit !important;
+}
+
+/* Estilo adicional para logo no topo */
+.cl-topbar,
+.cl-header {
+    background-color: #000000 !important;
+}
+
+/* Ajuste do nome do app com a logo */
+.cl-name {
+    color: #FFFFFF !important;
+    font-weight: bold !important;
+}
+
+.cl-name .cl-name-main {
+    color: #00D4FF !important; /* Ciano para "AI" */
+}
