@@ -154,9 +154,19 @@ async def chat_profiles():
 
 @cl.on_chat_start
 async def start():
-    # Define o perfil
+    # Define o perfil - pode ser objeto ou string
     chat_profile = cl.user_session.get("chat_profile")
-    perfil_nome = chat_profile.name if chat_profile else "modo_geral"
+    
+    # Trata chat_profile como objeto ou string
+    if chat_profile:
+        if hasattr(chat_profile, 'name'):
+            perfil_nome = chat_profile.name
+        elif isinstance(chat_profile, str):
+            perfil_nome = chat_profile
+        else:
+            perfil_nome = "modo_geral"
+    else:
+        perfil_nome = "modo_geral"
     
     # Gera ID único se não existir
     if not cl.user_session.get("thread_id"):
